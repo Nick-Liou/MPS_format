@@ -1,7 +1,7 @@
-[![Mypy](https://github.com/Nick-Liou/Python_template/actions/workflows/mypy.yml/badge.svg)](https://github.com/Nick-Liou/Python_template/actions/workflows/mypy.yml)
-[![Tests](https://github.com/Nick-Liou/Python_template/actions/workflows/pytest.yml/badge.svg)](https://github.com/Nick-Liou/Python_template/actions/workflows/pytest.yml)
+[![Mypy](https://github.com/Nick-Liou/MPS_format/actions/workflows/mypy.yml/badge.svg)](https://github.com/Nick-Liou/MPS_format/actions/workflows/mypy.yml)
+[![Tests](https://github.com/Nick-Liou/MPS_format/actions/workflows/pytest.yml/badge.svg)](https://github.com/Nick-Liou/MPS_format/actions/workflows/pytest.yml)
 
-# Python_template
+# MPS_format
 A template for Python projects with github actions for 
 - tests (with pytest)
 - type anotations (with Mypy)
@@ -12,11 +12,11 @@ A template for Python projects with github actions for
 
 1. Clone this repository:   
     ```
-    git clone https://github.com/Nick-Liou/Python_template.git
+    git clone https://github.com/Nick-Liou/MPS_format.git
     ```
 2. Navigate to the project directory:   
     ```
-    cd Python_template
+    cd MPS_format
     ```
 3. Install the required dependencies using pip:
     ```
