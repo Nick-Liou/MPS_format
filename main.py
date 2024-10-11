@@ -49,7 +49,7 @@ def parse_mps_file(file_path: str) -> dict:
     # }
 
     # Returns :
-    # Compressed Sparse Column (CSC)
+    # Compressed Sparse Column (CSC)        
     A_values : list[float] = []
     A_rows : list[int] = []     # Full all rows 
     A_cols : list[int] = []     # Points where it starts in A_values
@@ -60,12 +60,12 @@ def parse_mps_file(file_path: str) -> dict:
     current_col :int = -1 
     zeros_in_c_in_a_row :int = -1
 
-
-    b : list[float] = []
+    b : np.typing.NDArray
+    # b : list[float] = []
     c : list[float] = [] #np.array([])  np.typing.NDArray
     Eqin : list[int] = []
     MinMax :int = -1 
-    BS = None
+    Bounds = []
     
     # Helpful variables
     problem_name : str = ""
@@ -81,6 +81,7 @@ def parse_mps_file(file_path: str) -> dict:
             if line.startswith('*') or line.strip() == '':
                 continue
 
+            # Use "Match-Case" to make it faster 
             # Determine which section we are in
             if line.startswith("NAME"):
                 current_section = "NAME"
@@ -88,9 +89,9 @@ def parse_mps_file(file_path: str) -> dict:
             elif line.startswith("ROWS"):
                 current_section = "ROWS"
             elif line.startswith("COLUMNS"):
-                # c = np.zeros(num_of_restrains)
                 current_section = "COLUMNS"
             elif line.startswith("RHS"):
+                b = np.zeros(num_of_restrains)
                 current_section = "RHS"
             elif line.startswith("BOUNDS"):
                 current_section = "BOUNDS"
@@ -164,21 +165,31 @@ def parse_mps_file(file_path: str) -> dict:
                             raise  # Re-raise the exception if it's a different key
                     except IndexError:
                         pass
-
-
+                elif current_section == "RHS":
+                    a = line.strip().split() 
+                    
+                    b[Restrains_names[a[1]]] = float(a[2])
+                    try:
+                        b[Restrains_names[a[3]]] = float(a[4])
+                    except IndexError:
+                        pass
+                elif current_section == "BOUNDS":                    
+                    a = line.strip().split()                     
+                    print(a)
+                    del a[1]  # Removes the second element (index 1)
+                    if len(a) == 2: a.append("None")
+                    Bounds.append(a)
                 else:
-                    break 
-                    # mps_data["ROWS"].append(line.strip())
+                    continue
+ 
 
 
-
-                # elif current_section == "RHS":
-                #     mps_data["RHS"].append(line.strip())
                 # elif current_section == "BOUNDS":
                 #     mps_data["BOUNDS"].append(line.strip())
                 # elif current_section == "RANGES":
                 #     mps_data["RANGES"].append(line.strip())
 
+    # https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csc_array.html#scipy.sparse.csc_array
     # Add the last index to the A_cols array 
     A_cols.append(nnz)
     c.extend([0] * zeros_in_c_in_a_row)
@@ -190,14 +201,14 @@ def parse_mps_file(file_path: str) -> dict:
 
 
     print()
-    return {"MinMax":MinMax, "A":[A_values,A_rows,A_cols] , "b":b , "c":c , "Eqin":Eqin , "BS":BS}
+    return {"MinMax":MinMax, "A":[A_values,A_rows,A_cols] , "b":b , "c":c , "Eqin":Eqin , "BS":Bounds}
 
 
 def main() -> None:
 
     # Example usage
     selected_file = "Test_Datasets/afiro.mps"
-    # selected_file = select_file()    
+    selected_file = select_file()    
     print(f"Selected file: {selected_file}")
 
     parsed_data = parse_mps_file(selected_file)
@@ -209,7 +220,11 @@ def main() -> None:
     print()    
     print(f"c ({len(parsed_data['c'])}) => ",parsed_data["c"])
     print()
+    print(f"b ({len(parsed_data['b'])}) => ",parsed_data["b"])
+    print()
     print(f"Eqin ({len(parsed_data['Eqin'])})=> ",parsed_data["Eqin"])
+    print()
+    print(f"BS ({len(parsed_data['BS'])})=> ",parsed_data["BS"])
 
 
 if __name__ == "__main__":
