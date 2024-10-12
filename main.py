@@ -5,6 +5,7 @@ import os
 from typing import Any
 
 import numpy as np
+from scipy import sparse
 
 # Made with GPT
 def select_file(window_title: str = "Select a file") -> str:
@@ -199,8 +200,43 @@ def parse_mps_file(file_path: str) -> dict:
     print(f"Restrains_names ({len(Restrains_names)}):" , Restrains_names)
     print(f"A_cols_names/Varibales ({len(A_cols_names)}):" , A_cols_names)
 
+    A_sparse_csc = sparse.csc_array((A_values,A_rows,A_cols))
 
-    print()
+    # print(f"A_sparse_csc: ({A_sparse_csc.shape}) =>",A_sparse_csc)
+
+    # Convert to CSR (Compressed Sparse Row)
+    A_sparse_csr = A_sparse_csc.tocsr()
+    
+    # print(f"A_sparse_csr: ({A_sparse_csr.shape}) =>",A_sparse_csr)
+
+    # print("A = [" , end="")
+    # for i in range(A_sparse_csr.shape[0]):  # Rows        
+    #     for j in range(A_sparse_csr.shape[1]):  # Columns
+    #         print(A_sparse_csr[i, j], end= "  ")
+    #     print()
+    # print("]\n")
+
+    print("A = [" , end="")
+    for i in range(A_sparse_csr.shape[0]):  # Rows
+        for j in range(A_sparse_csr.shape[1]):  # Columns
+            # Format each element to a fixed width (e.g., 8 characters wide)
+            print(f"{A_sparse_csr[i, j]:>8}", end="  ")  # Right-align elements in a 8-character field
+        print()
+    print("]\n")
+
+    with open("output_matrix.txt", "w") as file:  # Open a file in write mode
+        file.write("A = [")  # Start the matrix format
+        
+        for i in range(A_sparse_csr.shape[0]):  # Rows
+            for j in range(A_sparse_csr.shape[1]):  # Columns
+                # Format each element to a fixed width and write it to the file
+                file.write(f"{A_sparse_csr[i, j]:>8}  ")
+            file.write("\n     ")  # Newline after each row
+        
+        file.write("]\n")  # Close the matrix format
+
+
+
     return {"MinMax":MinMax, "A":[A_values,A_rows,A_cols] , "b":b , "c":c , "Eqin":Eqin , "BS":Bounds}
 
 
@@ -208,7 +244,7 @@ def main() -> None:
 
     # Example usage
     selected_file = "Test_Datasets/afiro.mps"
-    selected_file = select_file()    
+    # selected_file = select_file()    
     print(f"Selected file: {selected_file}")
 
     parsed_data = parse_mps_file(selected_file)
