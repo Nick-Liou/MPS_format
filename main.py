@@ -7,7 +7,9 @@ from typing import Any
 import numpy as np
 from scipy import sparse
 
-# Made with GPT
+import time
+
+# Made with help from GPT
 def select_file(window_title: str = "Select a file") -> str:
     # Create a root window (it won't be displayed)
     root = tk.Tk()
@@ -69,6 +71,7 @@ def parse_mps_file(file_path: str) -> dict:
     Bounds = []
     
     # Helpful variables
+    convert_dict = {"L": -1 , "E":0 , "G":1}
     problem_name : str = ""
     objective_fun : str = ""
     num_of_restrains : int  = 0 # equals to m / numbers of rows 
@@ -105,7 +108,6 @@ def parse_mps_file(file_path: str) -> dict:
                 if current_section == "ROWS":
                     # Remove spaces
                     a = line.strip().split()
-                    convert_dict = {"L": -1 , "E":0 , "G":1}
                     try:
                         Eqin.append( convert_dict[a[0]] ) 
                         Restrains_names[a[1]] = num_of_restrains
@@ -131,13 +133,8 @@ def parse_mps_file(file_path: str) -> dict:
                         current_col += 1 
                         zeros_in_c_in_a_row += 1
 
-                        # print("\nFile line: ",a)
-                        # print("current col ",current_col)
                     
-
                     try:
-                        # print("Restrains_names: ",Restrains_names)
-                        # print("a[1]: ",a[1])
                         current_row = Restrains_names[a[1]]
                         A_values.append(float(a[2]))
                         A_rows.append(current_row)
@@ -175,18 +172,21 @@ def parse_mps_file(file_path: str) -> dict:
                     except IndexError:
                         pass
                 elif current_section == "BOUNDS":                    
-                    a = line.strip().split()                     
-                    print(a)
-                    del a[1]  # Removes the second element (index 1)
-                    if len(a) == 2: a.append("None")
-                    Bounds.append(a)
+                    # Process the line
+                    a = line.strip().split()  # Split the line into a list of strings
+                    # Create a new list excluding the second element
+                    a = [a[0]] + a[2:]  # Create a new list without the second element
+
+                    # Append "None" if the length is 2
+                    if len(a) == 2:
+                        a.append("None")
+
+                    # Append the joined string to the Bounds list
+                    Bounds.append(" ".join(a))
                 else:
                     continue
- 
 
 
-                # elif current_section == "BOUNDS":
-                #     mps_data["BOUNDS"].append(line.strip())
                 # elif current_section == "RANGES":
                 #     mps_data["RANGES"].append(line.strip())
 
@@ -195,45 +195,75 @@ def parse_mps_file(file_path: str) -> dict:
     A_cols.append(nnz)
     c.extend([0] * zeros_in_c_in_a_row)
 
-    print("Num rows = ", num_of_restrains)
-    print("Objective fun name:" , objective_fun)
-    print(f"Restrains_names ({len(Restrains_names)}):" , Restrains_names)
-    print(f"A_cols_names/Varibales ({len(A_cols_names)}):" , A_cols_names)
+    # print("Num rows = ", num_of_restrains)
+    # print("Objective fun name:" , objective_fun)
+    # print(f"Restrains_names ({len(Restrains_names)}):" , Restrains_names)
+    # print(f"A_cols_names/Varibales ({len(A_cols_names)}):" , A_cols_names)
+
+    print("Parsing Done")
 
     A_sparse_csc = sparse.csc_array((A_values,A_rows,A_cols))
 
     # print(f"A_sparse_csc: ({A_sparse_csc.shape}) =>",A_sparse_csc)
+    
+    print("Stored in CSC")
 
     # Convert to CSR (Compressed Sparse Row)
     A_sparse_csr = A_sparse_csc.tocsr()
+    print("Stored in CSR")
     
     # print(f"A_sparse_csr: ({A_sparse_csr.shape}) =>",A_sparse_csr)
 
+
     # print("A = [" , end="")
-    # for i in range(A_sparse_csr.shape[0]):  # Rows        
+    # for i in range(A_sparse_csr.shape[0]):  # Rows
     #     for j in range(A_sparse_csr.shape[1]):  # Columns
-    #         print(A_sparse_csr[i, j], end= "  ")
+    #         # Format each element to a fixed width (e.g., 8 characters wide)
+    #         print(f"{A_sparse_csr[i, j]:>8}", end="  ")  # Right-align elements in a 8-character field
     #     print()
     # print("]\n")
 
-    print("A = [" , end="")
-    for i in range(A_sparse_csr.shape[0]):  # Rows
-        for j in range(A_sparse_csr.shape[1]):  # Columns
-            # Format each element to a fixed width (e.g., 8 characters wide)
-            print(f"{A_sparse_csr[i, j]:>8}", end="  ")  # Right-align elements in a 8-character field
-        print()
-    print("]\n")
+
 
     with open("output_matrix.txt", "w") as file:  # Open a file in write mode
-        file.write("A = [")  # Start the matrix format
+
+        # Write A 
+        file.write("A=[ ")  # Start the matrix format
+        for i in range(A_sparse_csr.shape[0]):  # Iterate over rows
+            row_start = A_sparse_csr.indptr[i]
+            row_end = A_sparse_csr.indptr[i + 1]
+            col_indices = A_sparse_csr.indices[row_start:row_end]
+            data = A_sparse_csr.data[row_start:row_end]
+            
+            # Initialize an empty row and fill with zeros
+            row = np.zeros(A_sparse_csr.shape[1], dtype=A_sparse_csr.dtype)
+            
+            # Place the non-zero elements into the row
+            row[col_indices] = data
+            
+            # Write the formatted row to the file
+            file.write("  ".join(f"{elem:>8}" for elem in row) + "\n    ")
         
-        for i in range(A_sparse_csr.shape[0]):  # Rows
-            for j in range(A_sparse_csr.shape[1]):  # Columns
-                # Format each element to a fixed width and write it to the file
-                file.write(f"{A_sparse_csr[i, j]:>8}  ")
-            file.write("\n     ")  # Newline after each row
-        
-        file.write("]\n")  # Close the matrix format
+        file.write("]\n\n")  # Close the matrix format
+
+        # Write b 
+        file.write(f"b=[ {b[0]:>8}\n    " + "\n    ".join(f"{value:>8}" for value in b[1:]) + "\n]\n\n")  # Format and write all values in one go
+
+        # Write c 
+        file.write(f"c=[ {c[0]:>8}\n    " + "\n    ".join(f"{value:>8}" for value in c[1:]) + "\n]\n\n")  # Format and write all values in one go
+
+        # Write Eqin
+        file.write(f"Eqin=[ {Eqin[0]:>2}\n       " + "\n       ".join(f"{value:>2}" for value in Eqin[1:]) + "\n]\n\n")  # Format and write all values in one go
+
+        # Write MinMax
+        file.write(f"MinMax= {MinMax}\n\n") 
+
+        print(Bounds)
+        # Write BS
+        if Bounds :
+            file.write(f"BS=[ {Bounds[0]}\n     " + "\n     ".join(Bounds[1:]) + "\n]\n")  # Format and write all values in one go
+
+
 
 
 
@@ -244,23 +274,36 @@ def main() -> None:
 
     # Example usage
     selected_file = "Test_Datasets/afiro.mps"
+    selected_file = "Test_Datasets/ex1.mps"
     # selected_file = select_file()    
     print(f"Selected file: {selected_file}")
 
+    
+    # Start measuring CPU time
+    start_time = time.process_time()
+
     parsed_data = parse_mps_file(selected_file)
+
+    # Stop measuring CPU time
+    end_time = time.process_time()
+
+    # Calculate the total CPU time used
+    cpu_time_used = end_time - start_time
+
+    print(f"CPU time used: {cpu_time_used} seconds")
     # print(parsed_data)
 
-    print(f"A_values ({len(parsed_data['A'][0])}) => ",parsed_data["A"][0])
-    print(f"A_rows ({len(parsed_data['A'][1])})=> ",parsed_data["A"][1])
-    print(f"A_cols ({len(parsed_data['A'][2])})=> ",parsed_data["A"][2])
-    print()    
-    print(f"c ({len(parsed_data['c'])}) => ",parsed_data["c"])
-    print()
-    print(f"b ({len(parsed_data['b'])}) => ",parsed_data["b"])
-    print()
-    print(f"Eqin ({len(parsed_data['Eqin'])})=> ",parsed_data["Eqin"])
-    print()
-    print(f"BS ({len(parsed_data['BS'])})=> ",parsed_data["BS"])
+    # print(f"A_values ({len(parsed_data['A'][0])}) => ",parsed_data["A"][0])
+    # print(f"A_rows ({len(parsed_data['A'][1])})=> ",parsed_data["A"][1])
+    # print(f"A_cols ({len(parsed_data['A'][2])})=> ",parsed_data["A"][2])
+    # print()    
+    # print(f"c ({len(parsed_data['c'])}) => ",parsed_data["c"])
+    # print()
+    # print(f"b ({len(parsed_data['b'])}) => ",parsed_data["b"])
+    # print()
+    # print(f"Eqin ({len(parsed_data['Eqin'])})=> ",parsed_data["Eqin"])
+    # print()
+    # print(f"BS ({len(parsed_data['BS'])})=> ",parsed_data["BS"])
 
 
 if __name__ == "__main__":
