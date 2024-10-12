@@ -41,17 +41,7 @@ def parse_mps_file(file_path: str) -> dict:
     Returns:
     dict: A dictionary containing the parsed sections of the .mps file.
     """    
-    # mps_data : dict[str, Any] = {
-    #     "NAME": "",
-    #     "Restrains": {},
-    #     "Eqin": []  , 
-    #     "COLUMNS": [],
-    #     "RHS": [],
-    #     "BOUNDS": [],
-    #     "RANGES": []
-    # }
 
-    # Returns :
     # Compressed Sparse Column (CSC)        
     A_values : list[float] = []
     A_rows : list[int] = []     # Full all rows 
@@ -61,7 +51,7 @@ def parse_mps_file(file_path: str) -> dict:
     nnz :int = 0  
     current_row :int 
     current_col :int = -1 
-    zeros_in_c_in_a_row :int = -1
+    zeros_in_c_in_a_row :int = 0
 
     b : np.typing.NDArray
     # b : list[float] = []
@@ -141,7 +131,7 @@ def parse_mps_file(file_path: str) -> dict:
                         nnz += 1 
                     except KeyError as e:
                         if str(e) == "'" + objective_fun + "'" :
-                            c.extend([0] * zeros_in_c_in_a_row)
+                            c.extend([0] * (zeros_in_c_in_a_row-1))
                             # c[current_col] = float(a[2])
                             zeros_in_c_in_a_row = 0 
                             c.append(float(a[2]))
@@ -156,7 +146,7 @@ def parse_mps_file(file_path: str) -> dict:
                     except KeyError as e:
                         if str(e) == "'" + objective_fun + "'":
                             # c[current_col] = float(a[4])
-                            c.extend([0] * zeros_in_c_in_a_row)
+                            c.extend([0] * (zeros_in_c_in_a_row-1))
                             zeros_in_c_in_a_row = 0 
                             c.append(float(a[4]))
                         else:
@@ -242,15 +232,15 @@ def parse_mps_file(file_path: str) -> dict:
             row[col_indices] = data
             
             # Write the formatted row to the file
-            file.write("  ".join(f"{elem:>8}" for elem in row) + "\n    ")
+            file.write("  ".join(f"{elem:>11}" for elem in row) + "\n    ")
         
         file.write("]\n\n")  # Close the matrix format
 
         # Write b 
-        file.write(f"b=[ {b[0]:>8}\n    " + "\n    ".join(f"{value:>8}" for value in b[1:]) + "\n]\n\n")  # Format and write all values in one go
+        file.write(f"b=[ {b[0]:>11}\n    " + "\n    ".join(f"{value:>11}" for value in b[1:]) + "\n]\n\n")  # Format and write all values in one go
 
         # Write c 
-        file.write(f"c=[ {c[0]:>8}\n    " + "\n    ".join(f"{value:>8}" for value in c[1:]) + "\n]\n\n")  # Format and write all values in one go
+        file.write(f"c=[ {c[0]:>11}\n    " + "\n    ".join(f"{value:>11}" for value in c[1:]) + "\n]\n\n")  # Format and write all values in one go
 
         # Write Eqin
         file.write(f"Eqin=[ {Eqin[0]:>2}\n       " + "\n       ".join(f"{value:>2}" for value in Eqin[1:]) + "\n]\n\n")  # Format and write all values in one go
@@ -258,7 +248,6 @@ def parse_mps_file(file_path: str) -> dict:
         # Write MinMax
         file.write(f"MinMax= {MinMax}\n\n") 
 
-        print(Bounds)
         # Write BS
         if Bounds :
             file.write(f"BS=[ {Bounds[0]}\n     " + "\n     ".join(Bounds[1:]) + "\n]\n")  # Format and write all values in one go
@@ -272,8 +261,7 @@ def parse_mps_file(file_path: str) -> dict:
 
 def main() -> None:
 
-    # Example usage
-    selected_file = "Test_Datasets/afiro.mps"
+    # selected_file = "Test_Datasets/afiro.mps"
     selected_file = "Test_Datasets/ex1.mps"
     # selected_file = select_file()    
     print(f"Selected file: {selected_file}")
