@@ -9,6 +9,7 @@ from typing import Callable, List, Dict, Union
 from io import TextIOWrapper
 
 import numpy as np
+from scipy import sparse
 
 def select_file(window_title: str = "Select a file") -> str:
     """
@@ -83,8 +84,7 @@ def select_save_file_path(default_name: str = "untitled.mps", save_dir: str = os
     return file_path
 
 
-def parse_A(file: TextIOWrapper) -> List[List[float]]:
-    # A = [[float(x) for x in first_stripped_line.split()[1:]]]
+def parse_A_Dense(file: TextIOWrapper) -> List[List[float]]:
     A = []
     for line in file:
         stripped_line = line.strip()
@@ -93,6 +93,50 @@ def parse_A(file: TextIOWrapper) -> List[List[float]]:
         # Parse the row of numbers and append to A
         A.append([float(x) for x in stripped_line.split()])
     return A
+
+
+def parse_A(file: TextIOWrapper) -> sparse.csr_array:
+    """
+    Reads a matrix from a file in a dense format and converts it to a sparse CSR matrix.
+    
+    Parameters:
+    -----------
+    file : TextIOWrapper
+        The file object to read the matrix from.
+    
+    Returns:
+    --------
+    sparse.csr_array
+        The matrix in CSR (Compressed Sparse Row) format.
+    """
+    rows : list[int]    = []  # Stores the row indices of non-zero elements
+    cols : list[int]    = []  # Stores the column indices of non-zero elements
+    data : list[float]  = []  # Stores the non-zero values
+    
+    row_index = 0  # Track the row number in the matrix
+    
+    for line in file:
+        stripped_line = line.strip()
+        if stripped_line == "]":
+            break
+        
+        # Convert the line into a list of floats
+        row_values = [float(x) for x in stripped_line.split()]
+        
+        # Iterate over the row and store non-zero values
+        for col_index, value in enumerate(row_values):
+            if value != 0.0:  # Only consider non-zero elements
+                rows.append(row_index)
+                cols.append(col_index)
+                data.append(value)
+        
+        row_index += 1
+    
+    num_cols = max(cols) + 1  # Assuming the matrix is square or rectangular
+    # Create a CSR matrix from the collected data
+    A_sparse_csr = sparse.csr_array((data, (rows, cols)), shape=(row_index, num_cols))
+
+    return A_sparse_csr
 
 def parse_column_vector(file: TextIOWrapper, v_size : int ) -> np.ndarray : # np.typing.NDArray[float]:
     # Pre-allocate numpy array with the specified size
@@ -125,11 +169,11 @@ def parse_file(file_path: str) -> Dict[str, Union[List ,np.ndarray ]]:
             if stripped_line.startswith("A=["):
                 A = parse_A(file)
             elif stripped_line.startswith("b=["):
-                b = parse_column_vector(file , len(A))
+                b = parse_column_vector(file , A.get_shape()[0] )
             elif stripped_line.startswith("c=["):
-                c = parse_column_vector(file , len(A[0]))
+                c = parse_column_vector(file , A.get_shape()[1])
             elif stripped_line.startswith("Eqin=["):
-                Eqin = parse_column_vector(file , len(A))
+                Eqin = parse_column_vector(file , A.get_shape()[0])
             elif stripped_line.startswith("MinMax="):
                 MinMax = stripped_line.split()[1]
             elif stripped_line.startswith("BS=["):
@@ -152,16 +196,10 @@ def main() -> None:
     selected_file = "output_matrix.txt"
     print(f"Selected file: {selected_file}")
 
-
-    data = parse_file(selected_file)
-    print(data)
-
-    return
-    
     # Start measuring CPU time
     start_time = time.process_time()
 
-    parsed_data = parse_matrix_file(selected_file)
+    data = parse_file(selected_file)
 
     # Stop measuring CPU time
     end_time = time.process_time()
@@ -170,6 +208,10 @@ def main() -> None:
     cpu_time_used = end_time - start_time
 
     print(f"CPU time used: {cpu_time_used} seconds")
+
+    print(data)
+
+    
 
 
 if __name__ == "__main__":
