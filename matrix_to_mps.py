@@ -1,4 +1,4 @@
-
+# Made with help from GPT
 
 import time
 import tkinter as tk
@@ -10,8 +10,22 @@ from io import TextIOWrapper
 
 import numpy as np
 
-# Made with help from GPT
 def select_file(window_title: str = "Select a file") -> str:
+    """
+    Opens a file selection dialog to allow the user to choose a file. 
+    The dialog starts in the current working directory and filters file types to `.txt` files by default.
+
+    Args:
+        window_title (str): The title of the file selection dialog window. Defaults to "Select a file".
+
+    Returns:
+        str: The full path of the selected file as a string. If the user cancels the selection, an empty string is returned.
+
+    Notes:
+        - The function hides the root `tkinter` window.
+        - The dialog restricts the file selection to `.txt` files by default, but allows selecting any file type.
+        - The initial directory is set to the current working directory.
+    """ 
     # Create a root window (it won't be displayed)
     root = tk.Tk()
     root.withdraw()  # Hide the root window
@@ -26,83 +40,48 @@ def select_file(window_title: str = "Select a file") -> str:
     file_path = filedialog.askopenfilename(
         title=window_title,
         initialdir=current_dir,  # Set the dialog to open in the current directory
-        filetypes=[("TXT files", "*.txt"), ("All files", "*.*")]  # Restrict to .mps files by default
+        filetypes=[("TXT files", "*.txt"), ("All files", "*.*")]  # Restrict to .txt files by default
     )
 
     # Return the file path
     return file_path
 
 
+def select_save_file_path(default_name: str = "untitled.mps", save_dir: str = os.getcwd()) -> str:
+    """
+    Opens a "Save As" dialog to allow the user to select a file path and filename for saving a file.
+    The dialog will start in a specified directory and suggest a default filename and file type (.mps).
 
-def parse_matrix_file(file_path: str) -> dict:
-    mode = None  # Default mode is None
+    Args:
+        default_name (str): The default file name to suggest in the "Save As" dialog. Defaults to "untitled.mps".
+        save_dir (str): The directory to open the dialog in. Defaults to the current working directory.
 
-    # Define prefix-to-mode mapping
-    prefix_to_mode = {
-        "A=[": "Read_A",
-        "b=[": "Read_b",
-        "c=[": "Read_c",
-        "Eqin=[": "Read_Eqin",
-        "MinMax=": "Read_MinMax",
-        "BS=[": "Read_BS",
-    }
-    
-    line_prefixs =()
-    with open(file_path, 'r') as file:        
-        for line in file:
-            # Remove leading and trailing whitespaces
-            stripped_line = line.strip()
+    Returns:
+        str: The full path of the selected file, including the file name and extension. If the user cancels
+             the operation, an empty string is returned.
 
-            # Skip empty lines
-            if not stripped_line:
-                continue
+    Notes:
+        - The function hides the root `tkinter` window.
+        - The dialog filters the file types, showing `.mps` files by default, but allows selecting any file type.
+        - The `.mps` extension is added automatically if the user does not specify one.
+    """
 
-            # Try to find the matching mode by checking prefixes
-            for prefix, new_mode in prefix_to_mode.items():
-                if stripped_line.startswith(prefix):
-                    mode = new_mode
-                    break
+    # Create a root window (it won't be displayed)
+    root = tk.Tk()
+    root.withdraw()  # Hide the root window
 
-            # Process the data based on current mode
-            if mode == "Read_A":
-                # Process "A" section
-                pass
-            elif mode == "Read_b":
-                # Process "b" section
-                pass
-            elif mode == "Read_c":
-                # Process "c" section
-                pass
-            # Continue for other modes...
+    # Open a save file dialog and get the selected file path
+    file_path = filedialog.asksaveasfilename(
+        title="Save As",
+        initialdir=save_dir,
+        initialfile=default_name,
+        defaultextension="mps",  # Add the default extension
+        filetypes=[("MPS files", "*.mps"), ("All files", "*.*")]  # Restrict file types
+    )
 
-            # # Ignore empty lines
-            # if line.strip() == '':
-            #     continue
+    # Return the selected file path
+    return file_path
 
-            # if line.startswith("A=["):
-            #     mode = "Read_A"
-            # elif line.startswith("b=["):
-            #     mode = "Read_b"
-            # elif line.startswith("c=["):
-            #     mode = "Read_c"
-            # elif line.startswith("Eqin=["):
-            #     mode = "Read_Eqin"
-            # elif line.startswith("MinMax="):
-            #     mode = "Read_MinMax"
-            # elif line.startswith("BS=["):
-            #     mode = "Read_BS"
-            # else:
-            #     if mode == "Read_A":
-            #         pass
-            #     elif mode == "Read_b":
-            #         pass
-            #     elif mode == "Read_c":
-            #         pass
-            #     # ...
-            #     else:
-            #         continue
-
-    return {}
 
 def parse_A(file: TextIOWrapper) -> List[List[float]]:
     # A = [[float(x) for x in first_stripped_line.split()[1:]]]
@@ -114,67 +93,6 @@ def parse_A(file: TextIOWrapper) -> List[List[float]]:
         # Parse the row of numbers and append to A
         A.append([float(x) for x in stripped_line.split()])
     return A
-
-# def parse_b_old(file: TextIOWrapper, first_stripped_line : str , b_size : int) -> np.ndarray : # np.typing.NDArray[float]:
-#     # Pre-allocate numpy array with the specified size
-#     b = np.zeros(b_size, dtype=float)
-
-#     # Fill in the first value from the stripped line
-#     b[0] = float(first_stripped_line.split()[1])
-    
-#     # Use an index to keep track of where to insert the next value
-#     index = 1
-    
-#     for line in file:
-#         stripped_line = line.strip()
-#         if stripped_line == "]":
-#             break
-#         # Parse the number and insert it into the pre-allocated array
-#         b[index] = float(stripped_line)
-#         index += 1
-#     return b
-
-# def parse_b(file: TextIOWrapper, first_stripped_line : str , b_size : int) -> np.ndarray : # np.typing.NDArray[float]:
-#     # Pre-allocate numpy array with the specified size
-#     b = np.zeros(b_size, dtype=float)
-    
-#     # Fill in the first value from the stripped line
-#     b[0] = float(first_stripped_line.split()[1])
-    
-#     # Read exactly (b_size - 1) more lines
-#     for i in range(1, b_size):
-#         stripped_line = next(file).strip()  # Read the next line and strip it
-#         b[i] = float(stripped_line)        # Parse the number and insert it into the array
-
-#     return b
-
-# def parse_c(file: TextIOWrapper, first_stripped_line : str , c_size : int ) -> np.ndarray:
-#     # Pre-allocate numpy array with the specified size
-#     c = np.zeros(c_size, dtype=float)
-
-#     # Fill in the first value from the stripped line
-#     c[0] = float(first_stripped_line.split()[1])
-    
-#     # Use an index to keep track of where to insert the next value
-#     index = 1
-    
-#     for line in file:
-#         stripped_line = line.strip()
-#         if stripped_line == "]":
-#             break
-#         # Parse the number and insert it into the pre-allocated array
-#         c[index] = float(stripped_line)
-#         index += 1
-#     return c
-
-# def parse_Eqin(file: TextIOWrapper, first_stripped_line : str) -> List[int]:
-#     Eqin = []
-#     for line in file:
-#         stripped_line = line.strip()
-#         if stripped_line == "]":
-#             break
-#         Eqin.append(int(stripped_line))  # Parse the integer and append to Eqin
-#     return Eqin
 
 def parse_column_vector(file: TextIOWrapper, v_size : int ) -> np.ndarray : # np.typing.NDArray[float]:
     # Pre-allocate numpy array with the specified size
@@ -227,23 +145,6 @@ def parse_file(file_path: str) -> Dict[str, Union[List ,np.ndarray ]]:
         "MinMax": [MinMax],
         "BS": Bounds
     }
-
-# def test_parse(file_path: str) -> None : 
-#     with open(file_path, 'r') as file:
-#         for line in file:
-#             print("line is: " , line)
-#             if line.strip().startswith("A=["):
-#                 for A_line in file : 
-#                     print("lines in A: " , A_line)
-
-#                     if A_line.strip() == "]":
-#                         print("A is overr!!!")
-#                         break
-
-#             else:
-#                 break
-                    
-                
 
 def main() -> None:
 

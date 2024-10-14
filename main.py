@@ -1,3 +1,4 @@
+# Made with help from GPT
 
 import tkinter as tk
 from tkinter import filedialog
@@ -9,7 +10,6 @@ from scipy import sparse
 
 import time
 
-# Made with help from GPT
 def select_file(window_title: str = "Select a file") -> str:
     """
     Opens a file selection dialog to allow the user to choose a file. 
