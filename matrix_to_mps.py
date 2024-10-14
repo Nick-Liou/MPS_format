@@ -95,9 +95,9 @@ def parse_A_Dense(file: TextIOWrapper) -> List[List[float]]:
     return A
 
 
-def parse_A(file: TextIOWrapper) -> sparse.csr_array:
+def parse_A(file: TextIOWrapper) -> sparse.csc_array:
     """
-    Reads a matrix from a file in a dense format and converts it to a sparse CSR matrix.
+    Reads a matrix from a file in a dense format and converts it to a sparse CSC matrix.
     
     Parameters:
     -----------
@@ -107,13 +107,29 @@ def parse_A(file: TextIOWrapper) -> sparse.csr_array:
     Returns:
     --------
     sparse.csr_array
-        The matrix in CSR (Compressed Sparse Row) format.
+        The matrix in CSC (Compressed Sparse Column) format.
     """
     rows : list[int]    = []  # Stores the row indices of non-zero elements
     cols : list[int]    = []  # Stores the column indices of non-zero elements
     data : list[float]  = []  # Stores the non-zero values
     
-    row_index = 0  # Track the row number in the matrix
+    # Read the first non-empty line to determine the number of columns
+    for line in file:
+        stripped_line = line.strip()
+        if stripped_line and stripped_line != "]":
+            first_row_values = [float(x) for x in stripped_line.split()]
+            num_cols = len(first_row_values)
+
+            # Add the first row data to the matrix
+            for col_index, value in enumerate(first_row_values):
+                if value != 0.0:
+                    rows.append(0)
+                    cols.append(col_index)
+                    data.append(value)
+
+            break
+
+    row_index = 1  # Track the row number in the matrix
     
     for line in file:
         stripped_line = line.strip()
@@ -132,11 +148,13 @@ def parse_A(file: TextIOWrapper) -> sparse.csr_array:
         
         row_index += 1
     
-    num_cols = max(cols) + 1  # Assuming the matrix is square or rectangular
-    # Create a CSR matrix from the collected data
-    A_sparse_csr = sparse.csr_array((data, (rows, cols)), shape=(row_index, num_cols))
+    # Create a CSC matrix from the collected data
+    A_sparse_csc = sparse.csc_array((data, (rows, cols)), shape=(row_index, num_cols))
 
-    return A_sparse_csr
+    print(A_sparse_csc)
+
+
+    return A_sparse_csc
 
 def parse_column_vector(file: TextIOWrapper, v_size : int ) -> np.ndarray : # np.typing.NDArray[float]:
     # Pre-allocate numpy array with the specified size
