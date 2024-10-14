@@ -36,10 +36,10 @@ Eqin=[
 MinMax= -1
 
 BS=[
- LO COL01 2.5
- UP COL02 4.1
- LO COL05 0.5
- UP COL05 4.0
- UP COL08 4.3
- FX COL07 None
+ LO 0 2.5
+ UP 1 4.1
+ LO 4 0.5
+ UP 4 4.0
+ UP 7 4.3
+ FX 6 None
 ]

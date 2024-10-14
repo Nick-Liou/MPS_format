@@ -11,6 +11,21 @@ import time
 
 # Made with help from GPT
 def select_file(window_title: str = "Select a file") -> str:
+    """
+    Opens a file selection dialog to allow the user to choose a file. 
+    The dialog starts in the current working directory and filters file types to `.mps` files by default.
+
+    Args:
+        window_title (str): The title of the file selection dialog window. Defaults to "Select a file".
+
+    Returns:
+        str: The full path of the selected file as a string. If the user cancels the selection, an empty string is returned.
+
+    Notes:
+        - The function hides the root `tkinter` window.
+        - The dialog restricts the file selection to `.mps` files by default, but allows selecting any file type.
+        - The initial directory is set to the current working directory.
+    """ 
     # Create a root window (it won't be displayed)
     root = tk.Tk()
     root.withdraw()  # Hide the root window
@@ -31,34 +46,90 @@ def select_file(window_title: str = "Select a file") -> str:
     # Return the file path
     return file_path
 
-def parse_mps_file(file_path: str) -> dict:
-    """
-    Parse the content of an .mps file and return its sections as a dictionary.
 
-    Parameters:
-    file_path (str): The path to the .mps file.
+def select_save_file_path(default_name: str = "untitled.txt", save_dir: str = os.getcwd()) -> str:
+    """
+    Opens a "Save As" dialog to allow the user to select a file path and filename for saving a file.
+    The dialog will start in a specified directory and suggest a default filename and file type (.txt).
+
+    Args:
+        default_name (str): The default file name to suggest in the "Save As" dialog. Defaults to "untitled.txt".
+        save_dir (str): The directory to open the dialog in. Defaults to the current working directory.
 
     Returns:
-    dict: A dictionary containing the parsed sections of the .mps file.
-    """    
+        str: The full path of the selected file, including the file name and extension. If the user cancels
+             the operation, an empty string is returned.
 
+    Notes:
+        - The function hides the root `tkinter` window.
+        - The dialog filters the file types, showing `.txt` files by default, but allows selecting any file type.
+        - The `.txt` extension is added automatically if the user does not specify one.
+    """
+
+    # Create a root window (it won't be displayed)
+    root = tk.Tk()
+    root.withdraw()  # Hide the root window
+
+    # Open a save file dialog and get the selected file path
+    file_path = filedialog.asksaveasfilename(
+        title="Save As",
+        initialdir=save_dir,
+        initialfile=default_name,
+        defaultextension="txt",  # Add the default extension
+        filetypes=[("TXT files", "*.txt"), ("All files", "*.*")]  # Restrict file types
+    )
+
+    # Return the selected file path
+    return file_path
+
+
+
+def parse_mps_file(input_file_path: str) -> dict:
+    """
+    Parses the content of an .mps file and returns its components in a structured format. 
+    The function extracts information related to constraints, objective function, bounds, and matrix data, 
+    and organizes them into appropriate sparse matrix representations.
+
+    Parameters:
+    input_file_path : str
+        The path to the .mps file to be parsed.
+
+    Returns:
+    dict: A dictionary containing the parsed data from the .mps file with the following keys:    
+        - 'MinMax' (int): Indicates if the problem is a minimization (-1) or maximization (1).
+        - 'A' (scipy.sparse.csr_matrix): The constraint matrix `A` stored in CSR (Compressed Sparse Row) format.
+        - 'b' (np.ndarray): The right-hand side vector `b` for the constraints.
+        - 'c' (list[float]): The coefficient vector `c` for the objective function.
+        - 'Eqin' (list[int]): A list indicating the equality type of each constraint (-1 for <=, 0 for =, 1 for >=).
+        - 'Bounds' (list[str]): A list of bounds for variables extracted from the BOUNDS section of the file.
+
+    Notes:
+    - The function uses the CSC (Compressed Sparse Column) format to build the matrix `A` before converting it to CSR format for easier row access.
+    - The MPS file format is a fixed-width format, and this parser assumes well-formed MPS files.
+    - Sections such as 'ROWS', 'COLUMNS', 'RHS', and 'BOUNDS' are processed accordingly.
+    - `MinMax` is inferred based on the problem name (if indicated in the first line).
+    
+    Raises:
+    -------
+    KeyError:
+        If a key error occurs when referencing unknown rows or columns in the MPS file.
+    """
     # Compressed Sparse Column (CSC)        
     A_values : list[float] = []
     A_rows : list[int] = []     # Full all rows 
     A_cols : list[int] = []     # Points where it starts in A_values
-    A_cols_names : list[str] = []
+    A_cols_names : dict[str,int] = {}
     last_column_name : str = ""
     nnz :int = 0  
     current_row :int 
     current_col :int = -1 
     zeros_in_c_in_a_row :int = 0
 
-    b : np.typing.NDArray
-    # b : list[float] = []
-    c : list[float] = [] #np.array([])  np.typing.NDArray
+    b : np.ndarray
+    c : list[float] = [] 
     Eqin : list[int] = []
-    MinMax :int = -1 
-    Bounds = []
+    MinMax : int = -1 
+    Bounds : list[str]= []
     
     # Helpful variables
     convert_dict = {"L": -1 , "E":0 , "G":1}
@@ -69,17 +140,18 @@ def parse_mps_file(file_path: str) -> dict:
 
     current_section = None
 
-    with open(file_path, 'r') as file:
+    with open(input_file_path, 'r') as file:
         for line in file:
             # Ignore comments and empty lines
             if line.startswith('*') or line.strip() == '':
                 continue
 
-            # Use "Match-Case" to make it faster 
             # Determine which section we are in
             if line.startswith("NAME"):
                 current_section = "NAME"
                 problem_name = line.split()[1]  # Extract problem name
+                if (line.split() == 3):
+                    MinMax = 1 
             elif line.startswith("ROWS"):
                 current_section = "ROWS"
             elif line.startswith("COLUMNS"):
@@ -97,7 +169,7 @@ def parse_mps_file(file_path: str) -> dict:
                 # Add data to the appropriate section
                 if current_section == "ROWS":
                     # Remove spaces
-                    a = line.strip().split()
+                    a = line.split()
                     try:
                         Eqin.append( convert_dict[a[0]] ) 
                         Restrains_names[a[1]] = num_of_restrains
@@ -105,8 +177,6 @@ def parse_mps_file(file_path: str) -> dict:
                     except KeyError as e :
                         if str(e) == "'N'":
                             objective_fun = a[1]
-                            
-                            print("Objective fun name:" , objective_fun)
                         else:
                             raise  # Re-raise the exception if it's a different key
                 elif current_section == "COLUMNS":
@@ -118,9 +188,9 @@ def parse_mps_file(file_path: str) -> dict:
                     #  a[2] is the value (coefficient of X1)
                     if a[0] != last_column_name :
                         last_column_name = a[0]
-                        A_cols_names.append(a[0])
-                        A_cols.append(nnz)
                         current_col += 1 
+                        A_cols_names[a[0]] = current_col
+                        A_cols.append(nnz)
                         zeros_in_c_in_a_row += 1
 
                     
@@ -163,70 +233,84 @@ def parse_mps_file(file_path: str) -> dict:
                         pass
                 elif current_section == "BOUNDS":                    
                     # Process the line
-                    a = line.strip().split()  # Split the line into a list of strings
-                    # Create a new list excluding the second element
-                    a = [a[0]] + a[2:]  # Create a new list without the second element
+                    a = line.split()  # Split the line into a list of strings
+                    if len(a) == 3:
+                        a_string = f"{a[0]} {A_cols_names[a[2]]} None"
+                    else:
+                        a_string = f"{a[0]} {A_cols_names[a[2]]} {a[3]}"
 
-                    # Append "None" if the length is 2
-                    if len(a) == 2:
-                        a.append("None")
-
-                    # Append the joined string to the Bounds list
-                    Bounds.append(" ".join(a))
+                    # Append the string to the Bounds list
+                    Bounds.append(a_string)
                 else:
                     continue
 
 
-                # elif current_section == "RANGES":
-                #     mps_data["RANGES"].append(line.strip())
-
-    # https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csc_array.html#scipy.sparse.csc_array
     # Add the last index to the A_cols array 
     A_cols.append(nnz)
     c.extend([0] * zeros_in_c_in_a_row)
 
+    print("Parsing Completed")
     # print("Num rows = ", num_of_restrains)
     # print("Objective fun name:" , objective_fun)
     # print(f"Restrains_names ({len(Restrains_names)}):" , Restrains_names)
     # print(f"A_cols_names/Varibales ({len(A_cols_names)}):" , A_cols_names)
 
-    print("Parsing Done")
 
-    A_sparse_csc = sparse.csc_array((A_values,A_rows,A_cols))
+    A_sparse_csc = sparse.csc_array((A_values,A_rows,A_cols)) 
 
-    # print(f"A_sparse_csc: ({A_sparse_csc.shape}) =>",A_sparse_csc)
-    
-    print("Stored in CSC")
-
-    # Convert to CSR (Compressed Sparse Row)
+    # Convert to CSR (Compressed Sparse Row) to speed up file saving
     A_sparse_csr = A_sparse_csc.tocsr()
-    print("Stored in CSR")
+
+    return {"MinMax":MinMax, "A":A_sparse_csr , "b":b , "c":c , "Eqin":Eqin , "Bounds":Bounds}
+
+
+def save_txt_file(file_path: str , MinMax:int , A : sparse.csr_array , b: np.ndarray , c: list[float], Eqin: list[int] , Bounds:list[str] ) -> None:
+    """
+    Saves the linear programming problem data to a text file in a structured format, including the constraint matrix, 
+    objective function, bounds, and constraint types.
+
+    Parameters:
+    -----------
+    file_path : str
+        The path where the text file will be saved.
+    MinMax : int
+        Indicates whether the problem is a minimization (-1) or maximization (1).
+    A : sparse.csr_array
+        The sparse constraint matrix A in CSR format.
+    b : np.ndarray
+        The right-hand side vector for the constraints.
+    c : list[float]
+        The coefficients of the objective function.
+    Eqin : list[int]
+        List indicating the type of each constraint (-1 for <=, 0 for =, 1 for >=).
+    Bounds : list[str]
+        List of bounds for variables, if any.
+
+    Returns:
+    --------
+    None
+
+    Notes:
+    ------
+    - The constraint matrix `A` is written as a dense matrix with appropriate formatting.
+    - The bounds section is only written if the `Bounds` list is not empty.
     
-    # print(f"A_sparse_csr: ({A_sparse_csr.shape}) =>",A_sparse_csr)
-
-
-    # print("A = [" , end="")
-    # for i in range(A_sparse_csr.shape[0]):  # Rows
-    #     for j in range(A_sparse_csr.shape[1]):  # Columns
-    #         # Format each element to a fixed width (e.g., 8 characters wide)
-    #         print(f"{A_sparse_csr[i, j]:>8}", end="  ")  # Right-align elements in a 8-character field
-    #     print()
-    # print("]\n")
-
-
-
-    with open("output_matrix.txt", "w") as file:  # Open a file in write mode
+    Example:
+    --------
+    >>> save_txt_file("output.txt", MinMax, A_sparse, b, c, Eqin, Bounds)
+    """
+    with open(file_path, "w") as file:  # Open a file in write mode
 
         # Write A 
         file.write("A=[\n")  # Start the matrix format
-        for i in range(A_sparse_csr.shape[0]):  # Iterate over rows
-            row_start = A_sparse_csr.indptr[i]
-            row_end = A_sparse_csr.indptr[i + 1]
-            col_indices = A_sparse_csr.indices[row_start:row_end]
-            data = A_sparse_csr.data[row_start:row_end]
+        for i in range(A.shape[0]):  # Iterate over rows
+            row_start = A.indptr[i]
+            row_end = A.indptr[i + 1]
+            col_indices = A.indices[row_start:row_end]
+            data = A.data[row_start:row_end]
             
             # Initialize an empty row and fill with zeros
-            row = np.zeros(A_sparse_csr.shape[1], dtype=A_sparse_csr.dtype)
+            row = np.zeros(A.shape[1], dtype=A.dtype)
             
             # Place the non-zero elements into the row
             row[col_indices] = data
@@ -248,22 +332,16 @@ def parse_mps_file(file_path: str) -> dict:
         # Write MinMax
         file.write(f"MinMax= {MinMax}\n\n") 
 
-        # Write BS
+        # Write BS if they exist
         if Bounds :
             file.write("BS=[\n " + "\n ".join(Bounds) + "\n]\n")  # Format and write all values in one go
-
-
-
-
-
-    return {"MinMax":MinMax, "A":[A_values,A_rows,A_cols] , "b":b , "c":c , "Eqin":Eqin , "BS":Bounds}
 
 
 def main() -> None:
 
     # selected_file = "Test_Datasets/afiro.mps"
     selected_file = "Test_Datasets/ex1.mps"
-    # selected_file = select_file()    
+    selected_file = select_file()    
     print(f"Selected file: {selected_file}")
 
     
@@ -279,19 +357,13 @@ def main() -> None:
     cpu_time_used = end_time - start_time
 
     print(f"CPU time used: {cpu_time_used} seconds")
-    # print(parsed_data)
 
-    # print(f"A_values ({len(parsed_data['A'][0])}) => ",parsed_data["A"][0])
-    # print(f"A_rows ({len(parsed_data['A'][1])})=> ",parsed_data["A"][1])
-    # print(f"A_cols ({len(parsed_data['A'][2])})=> ",parsed_data["A"][2])
-    # print()    
-    # print(f"c ({len(parsed_data['c'])}) => ",parsed_data["c"])
-    # print()
-    # print(f"b ({len(parsed_data['b'])}) => ",parsed_data["b"])
-    # print()
-    # print(f"Eqin ({len(parsed_data['Eqin'])})=> ",parsed_data["Eqin"])
-    # print()
-    # print(f"BS ({len(parsed_data['BS'])})=> ",parsed_data["BS"])
+
+    save_file = select_save_file_path()    
+    print(f"Data is being saved to: {save_file}")
+    save_txt_file(save_file, **parsed_data )
+    print("File saved successfully")
+
 
 
 if __name__ == "__main__":
