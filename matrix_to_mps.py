@@ -104,8 +104,9 @@ def parse_matrix_file(file_path: str) -> dict:
 
     return {}
 
-def parse_A(file: TextIOWrapper , first_stripped_line : str) -> List[List[float]]:
-    A = [[float(x) for x in first_stripped_line.split()[1:]]]
+def parse_A(file: TextIOWrapper) -> List[List[float]]:
+    # A = [[float(x) for x in first_stripped_line.split()[1:]]]
+    A = []
     for line in file:
         stripped_line = line.strip()
         if stripped_line == "]":
@@ -175,22 +176,23 @@ def parse_A(file: TextIOWrapper , first_stripped_line : str) -> List[List[float]
 #         Eqin.append(int(stripped_line))  # Parse the integer and append to Eqin
 #     return Eqin
 
-def parse_column_vector(file: TextIOWrapper, first_stripped_line : str , v_size : int ) -> np.ndarray : # np.typing.NDArray[float]:
+def parse_column_vector(file: TextIOWrapper, v_size : int ) -> np.ndarray : # np.typing.NDArray[float]:
     # Pre-allocate numpy array with the specified size
     v = np.zeros(v_size, dtype=float)
     
     # Fill in the first value from the stripped line
-    v[0] = float(first_stripped_line.split()[1])
+    # v[0] = float(first_stripped_line.split()[1])
     
     # Read exactly (b_size - 1) more lines
-    for i in range(1, v_size):
+    for i in range(v_size):
         stripped_line = next(file).strip()  # Read the next line and strip it
         v[i] = float(stripped_line)        # Parse the number and insert it into the array
 
     return v
 
-def parse_BS(file: TextIOWrapper , first_stripped_line : str) -> List[str]:
-    BS = [first_stripped_line.split(maxsplit=1)[1]]
+def parse_BS(file: TextIOWrapper) -> List[str]:
+    # BS = [first_stripped_line.split(maxsplit=1)[1]]
+    BS = []
     for line in file:
         stripped_line = line.strip()
         if stripped_line == "]":
@@ -203,17 +205,17 @@ def parse_file(file_path: str) -> Dict[str, Union[List ,np.ndarray ]]:
         for line in file:
             stripped_line = line.strip()
             if stripped_line.startswith("A=["):
-                A = parse_A(file,stripped_line)
+                A = parse_A(file)
             elif stripped_line.startswith("b=["):
-                b = parse_column_vector(file,stripped_line , len(A))
+                b = parse_column_vector(file , len(A))
             elif stripped_line.startswith("c=["):
-                c = parse_column_vector(file,stripped_line , len(A[0]))
+                c = parse_column_vector(file , len(A[0]))
             elif stripped_line.startswith("Eqin=["):
-                Eqin = parse_column_vector(file,stripped_line , len(A))
+                Eqin = parse_column_vector(file , len(A))
             elif stripped_line.startswith("MinMax="):
                 MinMax = stripped_line.split()[1]
             elif stripped_line.startswith("BS=["):
-                Bounds = parse_BS(file,stripped_line)
+                Bounds = parse_BS(file)
             else:
                 continue
                 

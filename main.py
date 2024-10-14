@@ -218,7 +218,7 @@ def parse_mps_file(file_path: str) -> dict:
     with open("output_matrix.txt", "w") as file:  # Open a file in write mode
 
         # Write A 
-        file.write("A=[ ")  # Start the matrix format
+        file.write("A=[\n")  # Start the matrix format
         for i in range(A_sparse_csr.shape[0]):  # Iterate over rows
             row_start = A_sparse_csr.indptr[i]
             row_end = A_sparse_csr.indptr[i + 1]
@@ -232,25 +232,25 @@ def parse_mps_file(file_path: str) -> dict:
             row[col_indices] = data
             
             # Write the formatted row to the file
-            file.write("  ".join(f"{elem:>11}" for elem in row) + "\n    ")
+            file.write("  ".join(f"{elem:>11}" for elem in row) + "\n")
         
         file.write("]\n\n")  # Close the matrix format
 
         # Write b 
-        file.write(f"b=[ {b[0]:>11}\n    " + "\n    ".join(f"{value:>11}" for value in b[1:]) + "\n]\n\n")  # Format and write all values in one go
+        file.write("b=[\n " + "\n ".join(f"{value:>11}" for value in b) + "\n]\n\n")  # Format and write all values in one go
 
         # Write c 
-        file.write(f"c=[ {c[0]:>11}\n    " + "\n    ".join(f"{value:>11}" for value in c[1:]) + "\n]\n\n")  # Format and write all values in one go
+        file.write("c=[\n " + "\n ".join(f"{value:>11}" for value in c) + "\n]\n\n")  # Format and write all values in one go
 
         # Write Eqin
-        file.write(f"Eqin=[ {Eqin[0]:>2}\n       " + "\n       ".join(f"{value:>2}" for value in Eqin[1:]) + "\n]\n\n")  # Format and write all values in one go
+        file.write("Eqin=[\n " + "\n ".join(f"{value:>2}" for value in Eqin) + "\n]\n\n")  # Format and write all values in one go
 
         # Write MinMax
         file.write(f"MinMax= {MinMax}\n\n") 
 
         # Write BS
         if Bounds :
-            file.write(f"BS=[ {Bounds[0]}\n     " + "\n     ".join(Bounds[1:]) + "\n]\n")  # Format and write all values in one go
+            file.write("BS=[\n " + "\n ".join(Bounds) + "\n]\n")  # Format and write all values in one go
 
 
 
