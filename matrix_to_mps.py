@@ -84,15 +84,15 @@ def select_save_file_path(default_name: str = "untitled.mps", save_dir: str = os
     return file_path
 
 
-def parse_A_Dense(file: TextIOWrapper) -> List[List[float]]:
-    A = []
-    for line in file:
-        stripped_line = line.strip()
-        if stripped_line == "]":
-            break
-        # Parse the row of numbers and append to A
-        A.append([float(x) for x in stripped_line.split()])
-    return A
+# def parse_A_Dense(file: TextIOWrapper) -> List[List[float]]:
+#     A = []
+#     for line in file:
+#         stripped_line = line.strip()
+#         if stripped_line == "]":
+#             break
+#         # Parse the row of numbers and append to A
+#         A.append([float(x) for x in stripped_line.split()])
+#     return A
 
 
 def parse_A(file: TextIOWrapper) -> sparse.csc_array:
@@ -151,19 +151,13 @@ def parse_A(file: TextIOWrapper) -> sparse.csc_array:
     # Create a CSC matrix from the collected data
     A_sparse_csc = sparse.csc_array((data, (rows, cols)), shape=(row_index, num_cols))
 
-    print(A_sparse_csc)
-
-
     return A_sparse_csc
 
-def parse_column_vector(file: TextIOWrapper, v_size : int ) -> np.ndarray : # np.typing.NDArray[float]:
+def parse_column_vector(file: TextIOWrapper, v_size : int ) -> np.ndarray :
     # Pre-allocate numpy array with the specified size
     v = np.zeros(v_size, dtype=float)
-    
-    # Fill in the first value from the stripped line
-    # v[0] = float(first_stripped_line.split()[1])
-    
-    # Read exactly (b_size - 1) more lines
+        
+    # Read exactly v_size lines
     for i in range(v_size):
         stripped_line = next(file).strip()  # Read the next line and strip it
         v[i] = float(stripped_line)        # Parse the number and insert it into the array
@@ -171,7 +165,6 @@ def parse_column_vector(file: TextIOWrapper, v_size : int ) -> np.ndarray : # np
     return v
 
 def parse_BS(file: TextIOWrapper) -> List[str]:
-    # BS = [first_stripped_line.split(maxsplit=1)[1]]
     BS = []
     for line in file:
         stripped_line = line.strip()
@@ -180,7 +173,8 @@ def parse_BS(file: TextIOWrapper) -> List[str]:
         BS.append(stripped_line)  # Append each BS line as is
     return BS
 
-def parse_file(file_path: str) -> Dict[str, Union[List ,np.ndarray ]]:
+def parse_file(file_path: str) -> Dict[str, Union[List[float],np.ndarray , int , sparse.csc_array  ]]:
+    # MinMax = -1 
     with open(file_path, 'r') as file:
         for line in file:
             stripped_line = line.strip()
@@ -193,21 +187,80 @@ def parse_file(file_path: str) -> Dict[str, Union[List ,np.ndarray ]]:
             elif stripped_line.startswith("Eqin=["):
                 Eqin = parse_column_vector(file , A.get_shape()[0])
             elif stripped_line.startswith("MinMax="):
-                MinMax = stripped_line.split()[1]
+                MinMax = int(stripped_line.split()[1])
             elif stripped_line.startswith("BS=["):
                 Bounds = parse_BS(file)
             else:
                 continue
                 
     return {
+        "MinMax": MinMax,
         "A": A,
         "b": b,
         "c": c,
         "Eqin": Eqin,
-        "MinMax": [MinMax],
-        "BS": Bounds
+        "Bounds": Bounds
     }
 
+
+def save_mps_file(file_path: str , MinMax:int , A : sparse.csc_array , b: np.ndarray , c: np.ndarray, Eqin: np.ndarray , Bounds:list[str] ) -> None:
+    
+    OBJ_name  = "OBJ"
+    with open(file_path, "w") as file:  # Open a file in write mode
+        # NAME
+        if MinMax == 1 :
+            file.write("NAME  LP_PROBLEM_NAME   (MAX)\n")  # Write the problem name    
+        else:
+            file.write("NAME  LP_PROBLEM_NAME\n")  # Write the problem name
+
+        # ROWS
+        file.write("ROWS\n")
+        convert_Eqin = {-1:"L" , 0:"E" , 1:"G"}
+        for i , sign in enumerate(Eqin) :             
+            file.write(f" {convert_Eqin[sign]}  ROW{i}\n")  
+        file.write(f" N  {OBJ_name}\n")
+        
+        # COLUMNS
+        file.write("COLUMNS\n")
+        # Iterate over each column of the sparse matrix A
+        for col_number in range(A.shape[1]):  # Iterate over columns
+            # Write pairs of ROW and value for the current column
+            # The loop increments by 2, handling two entries per line where possible
+            for i in range(A.indptr[col_number] ,A.indptr[col_number+1]  - ((A.indptr[col_number+1] - A.indptr[col_number]) % 2) ,2):
+                file.write(f" COL{col_number}  ROW{A.indices[i]}  {A.data[i]}  ROW{A.indices[i+1]}  {A.data[i+1]}\n")
+
+            # Check if there is an unpaired last entry in this column
+            if (A.indptr[col_number+1] - A.indptr[col_number]) % 2 :
+                # If there's an odd number of entries, write the last entry separately
+                if c[col_number] != 0:                    
+                    # If the objective function coefficient for this column is non-zero, write it in the same line as the last entry
+                    file.write(f" COL{col_number}  ROW{A.indices[A.indptr[col_number+1]-1]}  {A.data[A.indptr[col_number+1]-1]}  {OBJ_name}  {c[col_number]}\n")
+                else:
+                    # Write the last unpaired entry without the objective function coefficient
+                    file.write(f" COL{col_number}  ROW{A.indices[A.indptr[col_number+1]-1]}  {A.data[A.indptr[col_number+1]-1]}\n")
+            elif c[col_number] != 0:
+                # If the number of entries is even and the objective function coefficient is non-zero, write it
+                file.write(f" COL{col_number}  {OBJ_name}  {c[col_number]}\n")
+        
+        # RHS
+        file.write("RHS\n")
+        for i , value in enumerate(b) :
+            if value != 0 :
+                file.write(f" RHS1  ROW{i}  {value}\n")  
+
+        # BOUNDS
+        if Bounds:
+            file.write("BOUNDS\n")
+            for value in Bounds: 
+                a = value.split()
+                extra = a[2] if a[2] != "None" else ""                
+                file.write(f"{a[0]} BND1  COL{a[1]}  {extra}\n")  
+        
+        file.write("ENDATA")
+        
+
+
+     
 def main() -> None:
 
     # selected_file = select_file()    
@@ -217,7 +270,7 @@ def main() -> None:
     # Start measuring CPU time
     start_time = time.process_time()
 
-    data = parse_file(selected_file)
+    parsed_data = parse_file(selected_file)
 
     # Stop measuring CPU time
     end_time = time.process_time()
@@ -227,12 +280,19 @@ def main() -> None:
 
     print(f"CPU time used: {cpu_time_used} seconds")
 
-    print(data)
+    print(parsed_data)
+
+
+    save_file = select_save_file_path()    
+    print(f"Data is being saved to: {save_file}")
+    save_mps_file(save_file, **parsed_data )
+    print("File saved successfully")
+
 
     
 
 
 if __name__ == "__main__":
-
+    
     main()
 
