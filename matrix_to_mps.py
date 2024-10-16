@@ -5,7 +5,7 @@ import tkinter as tk
 from tkinter import filedialog
 import os
 
-from typing import Callable, List, Dict, Union
+from typing import List, Dict, Union
 from io import TextIOWrapper
 
 import numpy as np
@@ -154,6 +154,35 @@ def parse_A(file: TextIOWrapper) -> sparse.csc_array:
     return A_sparse_csc
 
 def parse_column_vector(file: TextIOWrapper, v_size : int ) -> np.ndarray :
+    """
+    Parses a column vector from a text file and returns it as a NumPy array.
+
+    This function reads exactly `v_size` lines from the provided text file,
+    converts each line into a floating-point number, and stores these numbers
+    in a pre-allocated NumPy array.
+
+    Parameters:
+    -----------
+    file : TextIOWrapper
+        A file-like object that supports the iterator protocol. It should be
+        opened in a mode that allows reading text data (e.g., 'r' mode).
+        
+    v_size : int
+        The number of lines to read from the file. This determines the size
+        of the output array.
+
+    Returns:
+    --------
+    np.ndarray
+        A NumPy array of shape (v_size,) containing the parsed floating-point
+        numbers from the file.
+
+    Raises:
+    -------
+    ValueError
+        If the number of lines in the file is less than `v_size` or if
+        a line cannot be converted to a float.
+    """
     # Pre-allocate numpy array with the specified size
     v = np.zeros(v_size, dtype=float)
         
@@ -165,6 +194,30 @@ def parse_column_vector(file: TextIOWrapper, v_size : int ) -> np.ndarray :
     return v
 
 def parse_BS(file: TextIOWrapper) -> List[str]:
+    """
+    Parses a list of strings from a text file until a closing bracket is encountered.
+
+    This function reads lines from the provided text file and collects them
+    into a list of strings. The reading stops when a line containing only
+    a closing bracket (']') is encountered.
+
+    Parameters:
+    -----------
+    file : TextIOWrapper
+        A file-like object that supports the iterator protocol. It should be
+        opened in a mode that allows reading text data (e.g., 'r' mode).
+
+    Returns:
+    --------
+    List[str]
+        A list of strings containing the lines read from the file, excluding
+        the closing bracket line and any trailing whitespace.
+
+    Example:
+    --------
+    with open('data.txt', 'r') as f:
+        bs_lines = parse_BS(f)
+    """
     BS = []
     for line in file:
         stripped_line = line.strip()
@@ -174,7 +227,41 @@ def parse_BS(file: TextIOWrapper) -> List[str]:
     return BS
 
 def parse_file(file_path: str) -> Dict[str, Union[List[float],np.ndarray , int , sparse.csc_array  ]]:
-    # MinMax = -1 
+    """
+    Parses a configuration file and extracts various components into a dictionary.
+
+    This function reads a specified file and extracts parameters for linear 
+    programming or optimization problems, including matrices and vectors 
+    defined by specific prefixes in the file. The function supports parsing 
+    for various components like the constraint matrix, bounds, and objective 
+    function coefficients.
+
+    Parameters:
+    -----------
+    file_path : str
+        The path to the input file to be parsed. The file should be formatted 
+        according to specific conventions, with sections starting with 
+        identifiable prefixes (e.g., "A=[", "b=[", etc.).
+
+    Returns:
+    --------
+    Dict[str, Union[List[float], np.ndarray, int, sparse.csc_array]] A dictionary containing the following keys and their associated values:
+        - "MinMax": An integer indicating whether the problem is a minimization or maximization problem.
+        - "A": A sparse.csc_array representing the constraint matrix.
+        - "b": A NumPy array representing the right-hand side vector.
+        - "c": A NumPy array representing the objective function coefficients.
+        - "Eqin": A NumPy array representing the type of equations (-1 for <=, 0 for =, 1 for >=).
+        - "Bounds": A list of strings containing bounds information.
+
+    Raises:
+    -------
+    FileNotFoundError
+        If the specified file path does not exist.
+    ValueError
+        If the file contents are not formatted correctly or if required 
+        components are missing.    
+    """
+    Bounds = []
     with open(file_path, 'r') as file:
         for line in file:
             stripped_line = line.strip()
@@ -204,7 +291,62 @@ def parse_file(file_path: str) -> Dict[str, Union[List[float],np.ndarray , int ,
 
 
 def save_mps_file(file_path: str , MinMax:int , A : sparse.csc_array , b: np.ndarray , c: np.ndarray, Eqin: np.ndarray , Bounds:list[str] ) -> None:
+    """
+    Saves a linear programming problem to a file in MPS format.
+
+    This function generates and saves the linear programming problem in the 
+    Mathematical Programming System (MPS) format, which is widely used for 
+    representing linear programming problems. The file will contain sections 
+    for the objective function, constraints, right-hand side values, and bounds 
+    if provided.
+
+    Parameters:
+    -----------
+    file_path : str
+        The path where the MPS file will be saved.
     
+    MinMax : int
+        An integer indicating the type of problem:
+        - 1 for maximization problems.
+        - -1 for minimization problems.
+    
+    A : sparse.csc_array
+        A sparse matrix in Compressed Sparse Column (CSC) format representing 
+        the constraint coefficients of the linear programming problem.
+    
+    b : np.ndarray
+        A NumPy array representing the right-hand side (RHS) vector of the 
+        constraints.
+    
+    c : np.ndarray
+        A NumPy array representing the objective function coefficients.
+    
+    Eqin : np.ndarray
+        A NumPy array specifying the type of each constraint:
+        - -1 for less-than-or-equal constraints ("L"),
+        - 0 for equality constraints ("E"),
+        - 1 for greater-than-or-equal constraints ("G").
+    
+    Bounds : list[str]
+        A list of strings specifying the variable bounds in the format 
+        required by MPS. Each string should represent one bound, including the 
+        type of bound, the column (variable) it applies to, and the bound 
+        value (or "None" if the bound is not defined).
+
+    Returns:
+    --------
+    None
+        The function writes the MPS representation of the linear programming 
+        problem to the specified file and does not return any values.
+
+    Notes:
+    ------
+    - The function writes the MPS sections in the following order: NAME, ROWS, 
+      COLUMNS, RHS, BOUNDS (if provided), and ENDATA.
+    - In the "COLUMNS" section, two entries (ROW, value) are written per line 
+      where possible, and the objective function coefficients are added when 
+      non-zero.
+    """
     OBJ_name  = "OBJ"
     with open(file_path, "w") as file:  # Open a file in write mode
         # NAME
@@ -226,7 +368,10 @@ def save_mps_file(file_path: str , MinMax:int , A : sparse.csc_array , b: np.nda
         for col_number in range(A.shape[1]):  # Iterate over columns
             # Write pairs of ROW and value for the current column
             # The loop increments by 2, handling two entries per line where possible
-            for i in range(A.indptr[col_number] ,A.indptr[col_number+1]  - ((A.indptr[col_number+1] - A.indptr[col_number]) % 2) ,2):
+            start_index = A.indptr[col_number]
+            end_index = A.indptr[col_number + 1]    
+            # for i in range(A.indptr[col_number] ,A.indptr[col_number+1]  - ((A.indptr[col_number+1] - A.indptr[col_number]) % 2) ,2):
+            for i in range(start_index, end_index - ((end_index - start_index) % 2), 2):
                 file.write(f" COL{col_number}  ROW{A.indices[i]}  {A.data[i]}  ROW{A.indices[i+1]}  {A.data[i+1]}\n")
 
             # Check if there is an unpaired last entry in this column
@@ -263,8 +408,7 @@ def save_mps_file(file_path: str , MinMax:int , A : sparse.csc_array , b: np.nda
      
 def main() -> None:
 
-    # selected_file = select_file()    
-    selected_file = "output_matrix.txt"
+    selected_file = select_file()    
     print(f"Selected file: {selected_file}")
 
     # Start measuring CPU time
@@ -280,12 +424,10 @@ def main() -> None:
 
     print(f"CPU time used: {cpu_time_used} seconds")
 
-    print(parsed_data)
-
 
     save_file = select_save_file_path()    
     print(f"Data is being saved to: {save_file}")
-    save_mps_file(save_file, **parsed_data )
+    save_mps_file(save_file, **parsed_data )    # type: ignore
     print("File saved successfully")
 
 

@@ -147,24 +147,25 @@ def parse_mps_file(input_file_path: str) -> dict:
                 continue
 
             # Determine which section we are in
-            if line.startswith("NAME"):
-                current_section = "NAME"
-                problem_name = line.split()[1]  # Extract problem name
-                if (line.split() == 3):
-                    MinMax = 1 
-            elif line.startswith("ROWS"):
-                current_section = "ROWS"
-            elif line.startswith("COLUMNS"):
-                current_section = "COLUMNS"
-            elif line.startswith("RHS"):
-                b = np.zeros(num_of_restrains)
-                current_section = "RHS"
-            elif line.startswith("BOUNDS"):
-                current_section = "BOUNDS"
-            elif line.startswith("RANGES"):
-                current_section = "RANGES"
-            elif line.startswith("ENDATA"):
-                break  # End of file marker
+            if line.startswith(("NAME", "ROWS", "COLUMNS", "RHS", "BOUNDS", "RANGES", "ENDATA" )):
+                if line.startswith("NAME"):
+                    current_section = "NAME"
+                    problem_name = line.split()[1]  # Extract problem name
+                    if (line.split() == 3):
+                        MinMax = 1 
+                elif line.startswith("ROWS"):
+                    current_section = "ROWS"
+                elif line.startswith("COLUMNS"):
+                    current_section = "COLUMNS"
+                elif line.startswith("RHS"):
+                    b = np.zeros(num_of_restrains)
+                    current_section = "RHS"
+                elif line.startswith("BOUNDS"):
+                    current_section = "BOUNDS"
+                elif line.startswith("RANGES"):
+                    current_section = "RANGES"
+                elif line.startswith("ENDATA"):
+                    break  # End of file marker
             else:
                 # Add data to the appropriate section
                 if current_section == "ROWS":
@@ -175,6 +176,7 @@ def parse_mps_file(input_file_path: str) -> dict:
                         Restrains_names[a[1]] = num_of_restrains
                         num_of_restrains += 1
                     except KeyError as e :
+                        #  EAFP (Easier to Ask for Forgiveness than Permission)
                         if str(e) == "'N'":
                             objective_fun = a[1]
                         else:
@@ -340,7 +342,7 @@ def save_txt_file(file_path: str , MinMax:int , A : sparse.csr_array , b: np.nda
 def main() -> None:
 
     # selected_file = "Test_Datasets/afiro.mps"
-    selected_file = "Test_Datasets/ex1.mps"
+    # selected_file = "Test_Datasets/ex1.mps"
     selected_file = select_file()    
     print(f"Selected file: {selected_file}")
 
@@ -348,7 +350,12 @@ def main() -> None:
     # Start measuring CPU time
     start_time = time.process_time()
 
+    # from pyinstrument import Profiler
+    # with Profiler() as profiler:
+    #     for i in range(1000):
     parsed_data = parse_mps_file(selected_file)
+
+    # profiler.print()
 
     # Stop measuring CPU time
     end_time = time.process_time()
